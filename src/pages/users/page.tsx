@@ -5,25 +5,17 @@ import {
   useActionState,
   useState,
 } from 'react';
-import { fetchUsers } from '../../shared/api';
 import { User } from '../../shared/types';
 import { ErrorBoundary } from 'react-error-boundary';
 import { createUserAction, deleteUserAction } from './actions';
-
-// Render as you fetch pattern
-const defaultUsersPromise = fetchUsers();
+import { useUsers } from './useUsers';
 
 export function UsersPage() {
-  const [usersPromise, setUsersPromise] = useState(defaultUsersPromise);
-  const refetchUsers = () => {
-    startTransition(() => {
-      setUsersPromise(fetchUsers());
-    });
-  };
+  const [usersPromise, refetchUsers] = useUsers();
 
   return (
     <main className='container max-auto p-4 pt-10 flex flex-col gap-4'>
-      <h1 className='text-3xl font-bold uderline'>Users</h1>
+      <h1 className='text-3xl font-bold'>Users</h1>
 
       <CreateUserForm refetchUsers={refetchUsers} />
       <ErrorBoundary
