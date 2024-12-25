@@ -1,56 +1,52 @@
 import { createUser, deleteUser } from '../../shared/api';
+import { User } from '../../shared/types';
 
 type CreateActionState = {
-  // defaultEmail: string;
+  email: string;
   error?: string;
 };
 
-/**
- * Creates a user action that handles the creation of a new user.
- *
- * @param {Object} params - The parameters for the action.
- * @param {Function} params.refetchUsers - A function to refetch the list of users.
- * @param {Function} params.setEmail - A function to set the email state.
- * @returns {Function} An asynchronous function that takes the previous state and form data,
- * and returns a new state after attempting to create a user.
- *
- * @typedef {Object} CreateActionState - The state object for the create action.
- * @property {string} [defaultEmail] - The default email value.
- * @property {string} [error] - The error message if the user creation fails.
- *
- * @param {CreateActionState} prevState - The previous state of the create action.
- * @param {Object} formData - The form data containing the email.
- * @param {string} formData.email - The email of the user to be created.
- * @returns {Promise<CreateActionState>} A promise that resolves to the new state.
- */
+export type CreateUserAction = (
+  state: CreateActionState,
+  formData: FormData,
+) => Promise<CreateActionState>;
 
 export function createUserAction({
-  refetchUsers, setEmail,
+  refetchUsers,
+  optimisticCreate,
 }: {
   refetchUsers: () => void;
-  setEmail: (email: string) => void;
-}) {
-  return async (
-    prevState: CreateActionState,
-    formData: { email: string; }
-  ): Promise<CreateActionState> => {
+  optimisticCreate: (user: User) => void;
+}): CreateUserAction {
+  return async (_, formData): Promise<CreateActionState> => {
+    const email = formData.get('email') as string;
+
+    if (email === 'admin@gmail.com') {
+      return {
+        error: 'Admin account is not allowed!',
+        email,
+      };
+    }
+
     try {
-      await createUser({
-        email: formData.email,
+      const user = {
+        email,
         id: crypto.randomUUID(),
-      });
+      };
+      optimisticCreate(user);
+
+      await createUser(user);
 
       // Stale while revalidate
       refetchUsers();
-      setEmail('');
 
       return {
-        // defaultEmail: '',
+        email: '',
       };
     } catch (error) {
       return {
-        // defaultEmail: formData.email,
-        error: (error as Error).message + ' Error while creating user!',
+        email,
+        error: `Error while creating user: ${(error as Error).message}`,
       };
     }
   };
@@ -60,24 +56,31 @@ type DeleteUserActionState = {
   error?: string;
 };
 
-/**
- * Deletes a user by their ID and refetches the user list.
- *
- * @param {Object} params - The parameters for the action.
- * @param {string} params.id - The ID of the user to delete.
- * @param {() => void} params.refetchUsers - A function to refetch the user list after deletion.
- * @returns {Promise<DeleteUserActionState>} A promise that resolves to the state of the delete user action.
- */
+export type DeleteUserAction = (
+  state: DeleteUserActionState,
+  formData: FormData,
+) => Promise<DeleteUserActionState>;
 
-export function deleteUserAction({ id, refetchUsers }: { refetchUsers: () => void; id: string; }) {
-  return async (): Promise<DeleteUserActionState> => {
+export function deleteUserAction({
+  refetchUsers,
+  optimisticDelete,
+}: {
+  refetchUsers: () => void;
+  optimisticDelete: (id: string) => void;
+}): DeleteUserAction {
+  return async (_, formData): Promise<DeleteUserActionState> => {
+    const id = formData.get('id') as string;
+
     try {
+      optimisticDelete(id);
       await deleteUser(id);
       refetchUsers();
 
       return {};
     } catch {
-      return {};
+      return {
+        error: 'Error while deleting user!',
+      };
     }
   };
 }
